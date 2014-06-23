@@ -35,18 +35,20 @@ delimiter = raw_input()
 
 df = read_csv(''.join([filepath,filename]),delimiter, index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
 df = read_csv('c:\data\export_all.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
+df = read_csv('c:\data\exportIgrR1e1.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
+
 #LABEL in df and WRITE FILE WITHOUT EQUID
 df['LABEL']  = 0
 for i in range(len(df)):
  if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#авария
   df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#ремонт
+ if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#ремонт
   df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#работа
+ if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#работа
   df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#резерв
+ if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#резерв
   df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#нет данных
+ if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#нет данных
   df['LABEL'][i] = 1
 del df['EVENT'] 
 df = df.ffill()
