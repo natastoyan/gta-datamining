@@ -38,19 +38,22 @@ df = read_csv('c:\data\export_all.dsv',';', index_col=["TIMESTAMP"], parse_dates
 df = read_csv('c:\data\exportIgrR1e1.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
 
 parameters = ['SD','PINB','TINB','Q','POUTB','TOUTB','REVHP','REVLP','REVWE','TFIRE','CF']
+events = ['AVARIA', 'REMONT', 'RABOTA', 'REZERV', 'NOINFO']
 #LABEL in df and WRITE FILE WITHOUT EQUID
-df['LABEL']  = 0
+for i in range(len(events)):
+ df[events[i]] = 0
+
 for i in range(len(df)):
  if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
-  df['LABEL'][i] = 1
+  df['AVARIA'][i] = 1
  if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#v remonte
-  df['LABEL'][i] = 2
+  df['REMONT'][i] = 1
  if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#v rabote
-  df['LABEL'][i] = 3
+  df['RABOTA'][i] = 1
  if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#v rezerve
-  df['LABEL'][i] = 4
+  df['REZERV'][i] = 1
  if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
-  df['LABEL'][i] = 5
+  df['NOINFO'][i] = 1
 del df['EVENT'] 
 df = df.ffill()
 
@@ -190,19 +193,11 @@ for i in range(len(df)):
 
 print('Data is loaded. Show plot? y/n')
 if raw_input() == 'y':
- plt.plot(df.PINB, label = 'PinB')
- plt.plot(df.POUTB, label = 'PoutB')
- #plt.plot(df.SD, label = 'SD')
- plt.plot(df.Q, label = 'Q')
- plt.plot(df.TINB, label = 'TinB')
- plt.plot(df.TOUTB, label = 'ToutB')
- plt.plot(df.REVWE, label = 'RevWE')
- plt.plot(df.REVHP, label = 'RevHP')
- plt.plot(df.REVLP, label = 'RevLP')
- #plt.plot(df.TFIRE, label = 'Tfire')
- plt.plot(df.CF, label = 'CF')
-# plt.plot(df.LABEL, label = 'Label')
-# plt.plot(df.SEGMENT, label = 'Segment')
+ for i in range(len(parameters)):
+  plt.plot(df[parameters[i]], label = parameters[i])
+ for i in range(len(events)):
+  plt.plot(df[events[i]], label = events[i])
+ plt.plot(df.SEGMENT, label = 'Segment')
  plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
  plt.show()
  
