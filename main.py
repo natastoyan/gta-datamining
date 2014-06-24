@@ -37,19 +37,20 @@ df = read_csv(''.join([filepath,filename]),delimiter, index_col=["TIMESTAMP"], p
 df = read_csv('c:\data\export_all.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
 df = read_csv('c:\data\exportIgrR1e1.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
 
+parameters = ['SD','PINB','TINB','Q','POUTB','TOUTB','REVHP','REVLP','REVWE','TFIRE','CF']
 #LABEL in df and WRITE FILE WITHOUT EQUID
 df['LABEL']  = 0
 for i in range(len(df)):
- if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#авария
+ if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
   df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#ремонт
-  df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#работа
-  df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#резерв
-  df['LABEL'][i] = 1
- if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#нет данных
-  df['LABEL'][i] = 1
+ if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#v remonte
+  df['LABEL'][i] = 2
+ if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#v rabote
+  df['LABEL'][i] = 3
+ if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#v rezerve
+  df['LABEL'][i] = 4
+ if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
+  df['LABEL'][i] = 5
 del df['EVENT'] 
 df = df.ffill()
 
@@ -74,6 +75,12 @@ df.REVHP = (df.REVHP - mean_dict['AVG(REVHP)']) / (minmax_dict['MAX-MIN(REVHP)']
 df.REVLP = (df.REVLP - mean_dict['AVG(REVLP)']) / (minmax_dict['MAX-MIN(REVLP)'])
 df.REVWE = (df.REVWE - mean_dict['AVG(REVWE)']) / (minmax_dict['MAX-MIN(REVWE)'])
 df['SEGMENT'] = 0
+
+#some values are too small, they should be multiplied by 10 or 100
+for j in range(len(parameters)):
+ for i in range(1,3):
+  if abs(df[parameters[j]]).max() < 0.00009*(10**i):
+   df[parameters[j]] = df[parameters[j]]*10**(4-i)
 
 #MANUAL SEGMENTATION
 df['SEGMENT'][0] = 1
@@ -185,17 +192,17 @@ print('Data is loaded. Show plot? y/n')
 if raw_input() == 'y':
  plt.plot(df.PINB, label = 'PinB')
  plt.plot(df.POUTB, label = 'PoutB')
- plt.plot(df.SD, label = 'SD')
+ #plt.plot(df.SD, label = 'SD')
  plt.plot(df.Q, label = 'Q')
  plt.plot(df.TINB, label = 'TinB')
  plt.plot(df.TOUTB, label = 'ToutB')
  plt.plot(df.REVWE, label = 'RevWE')
  plt.plot(df.REVHP, label = 'RevHP')
  plt.plot(df.REVLP, label = 'RevLP')
- plt.plot(df.TFIRE, label = 'Tfire')
+ #plt.plot(df.TFIRE, label = 'Tfire')
  plt.plot(df.CF, label = 'CF')
- plt.plot(df.LABEL, label = 'Label')
- plt.plot(df.SEGMENT, label = 'Segment')
+# plt.plot(df.LABEL, label = 'Label')
+# plt.plot(df.SEGMENT, label = 'Segment')
  plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
  plt.show()
  
