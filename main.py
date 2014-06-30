@@ -3,7 +3,7 @@
 import numpy as np
 import scipy as sp
 from pandas import *
-import statsmodels.api as sm
+#import statsmodels.api as sm
 from matplotlib import pyplot as plt
 # import pywt
 from math import *
@@ -35,7 +35,7 @@ delimiter = raw_input()
 
 df = read_csv(''.join([filepath,filename]),delimiter, index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
 df = read_csv('c:\data\export_all.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
-df = read_csv('c:\data\exportIgrR1e1.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
+df = read_csv('c:\data\exportMzgR8e3.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
 
 parameters = ['SD','PINB','TINB','Q','POUTB','TOUTB','REVHP','REVLP','REVWE','TFIRE','CF']
 events = ['AVARIA', 'REMONT', 'RABOTA', 'REZERV', 'NOINFO']
@@ -77,6 +77,7 @@ df.TFIRE = (df.TFIRE - mean_dict['AVG(TFIRE)']) / (minmax_dict['MAX-MIN(TFIRE)']
 df.REVHP = (df.REVHP - mean_dict['AVG(REVHP)']) / (minmax_dict['MAX-MIN(REVHP)'])
 df.REVLP = (df.REVLP - mean_dict['AVG(REVLP)']) / (minmax_dict['MAX-MIN(REVLP)'])
 df.REVWE = (df.REVWE - mean_dict['AVG(REVWE)']) / (minmax_dict['MAX-MIN(REVWE)'])
+df.Q = (df.Q - mean_dict['AVG(Q)']) / (minmax_dict['MAX-MIN(Q)'])
 df['SEGMENT'] = 0
 
 #some values are too small, they should be multiplied by 10 or 100
@@ -84,7 +85,22 @@ for j in range(len(parameters)):
  for i in range(1,3):
   if abs(df[parameters[j]]).max() < 0.00009*(10**i):
    df[parameters[j]] = df[parameters[j]]*10**(4-i)
+   
+#equidistance
+df = df.asfreq('1S', method = 'pad')
+df = df.resample('5Min', how='mean')
 
+for i in range(len(parameters)):
+ plt.plot(df.index, df[parameters[i]], label = parameters[i])
+#for i in range(len(events)):
+# plt.plot(df.index, df[events[i]], label = events[i])
+plt.plot(df.index, df['AVARIA'], 'bo', label = 'AVARIA')
+plt.plot(df.index, df.SEGMENT, label = 'Segment')
+plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
+plt.show()
+
+#TIME SEGMENTATION
+for 
 #MANUAL SEGMENTATION
 df['SEGMENT'][0] = 1
 df['SEGMENT'][-1] = 1
@@ -284,7 +300,10 @@ for i in range(len(ind)):
  else: 
   j = 0
  labels.append(j)
- 
+
+net = buildNetwork(3, 3, 1)
+net.activate([nan, -1, 1])
+
 ds = ClassificationDataSet(600, 1, nb_classes=2, class_labels=['bad', 'good']) 
 #add to data set segments without empty values
 for i in range(len(ind)):
