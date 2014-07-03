@@ -1,4 +1,4 @@
-## -*- coding: cp1251 -*-
+# -*- coding: cp866 -*-
 
 import numpy as np
 import scipy as sp
@@ -7,205 +7,123 @@ from pandas import *
 from matplotlib import pyplot as plt
 # import pywt
 from math import *
-from pybrain.tools.shortcuts     import buildNetwork 
-from pybrain.datasets            import SupervisedDataSet
+from pybrain.tools.shortcuts import buildNetwork 
+from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import BackpropTrainer
-from pybrain.datasets            import ClassificationDataSet
-from pybrain.utilities           import percentError
-from pybrain.tools.shortcuts     import buildNetwork
+from pybrain.datasets import ClassificationDataSet
+from pybrain.utilities import percentError
+from pybrain.tools.shortcuts import buildNetwork
 from pybrain.supervised.trainers import BackpropTrainer
-from pybrain.structure.modules   import SoftmaxLayer, SigmoidLayer, LinearLayer, TanhLayer 
+from pybrain.structure.modules import SoftmaxLayer, SigmoidLayer, LinearLayer, TanhLayer 
 from pybrain.tools.xml.networkwriter import NetworkWriter
 
-print('PREPARE DATA')
-filepath = 'c:/data/'
-print(''.join(['Current filepath is "',filepath,'". Do you want to change filepath? y/n']))
-if raw_input() == 'y':
- print('Enter new filepath:')
- filepath = raw_input()
 
-print('Enter filename:')
-filename = raw_input()
-print ('Enter delimiter:')
-delimiter = raw_input()
+# с авариями: exportGrnR3e2.csv, exportMzgR8e1.dsv, exportAlmR3e1.csv, exportNkgR9e3.dsv, 
+# exportMzgR8e3.dsv, exportPrkR1e11.dsv, #exportVtkR1e2.dsv, exportNkgR9e2.dsv (delimiter = ',''), 
+# exportNkgR10e1.dsv, exportGrnR6e1.dsv, c:\data\exportChaR6e2.dsv, exportIgrR1e1.dsv
+# без аварий: exportGrnR2e4.dsv
 
-#с авариями: exportGrnR3e2.csv, exportMzgR8e1.dsv, exportAlmR3e1.csv, exportNkgR9e3.dsv, exportMzgR8e3.dsv, exportPrkR1e11.dsv, 
-#exportVtkR1e2.dsv, exportNkgR9e2.dsv (delimiter = ',''), exportNkgR10e1.dsv, exportGrnR6e1.dsv, c:\data\exportChaR6e2.dsv, exportIgrR1e1.dsv
-#без аварий: exportGrnR2e4.dsv
+#df = read_csv(
+#    ''.join([filepath,filename]),delimiter, index_col=["TIMESTAMP"], 
+#    parse_dates=["TIMESTAMP"], dayfirst=True
+#) 
+#df = read_csv(
+#    'c:\data\export_all.dsv',';', index_col=["TIMESTAMP"],
+#     parse_dates=["TIMESTAMP"], dayfirst=True
+#)
+df = read_csv(
+    'c:\data\exportPrkR1e11.dsv',';', index_col=["TIMESTAMP"],
+    parse_dates=["TIMESTAMP"], dayfirst=True
+) 
 
-df = read_csv(''.join([filepath,filename]),delimiter, index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
-df = read_csv('c:\data\export_all.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
-df = read_csv('c:\data\exportMzgR8e3.dsv',';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True) 
+parameters = [
+    'SD','PINB','TINB',
+    'Q','POUTB','TOUTB',
+    'REVHP','REVLP','REVWE',
+    'TFIRE','CF'
+]
+events = [
+    'AVARIA', 'REMONT', 'RABOTA',
+    'REZERV', 'NOINFO'
+]
 
-parameters = ['SD','PINB','TINB','Q','POUTB','TOUTB','REVHP','REVLP','REVWE','TFIRE','CF']
-events = ['AVARIA', 'REMONT', 'RABOTA', 'REZERV', 'NOINFO']
-#LABEL in df and WRITE FILE WITHOUT EQUID
+# LABEL in df and WRITE FILE WITHOUT EQUID
 for i in range(len(events)):
- df[events[i]] = 0
-
+    df[events[i]] = 0
+df['LABEL'] = 0
 for i in range(len(df)):
- if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
-  df['AVARIA'][i] = 1
- if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#v remonte
-  df['REMONT'][i] = 1
- if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#v rabote
-  df['RABOTA'][i] = 1
- if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#v rezerve
-  df['REZERV'][i] = 1
- if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
-  df['NOINFO'][i] = 1
+    if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
+        df['AVARIA'][i] = 1
+        df['LABEL'][i] = 1
+    if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#v remonte
+        df['REMONT'][i] = 1
+        df['LABEL'][i] = 2
+    if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#v rabote
+        df['RABOTA'][i] = 1
+        df['LABEL'][i] = 3
+    if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#v rezerve
+        df['REZERV'][i] = 1
+        df['LABEL'][i] = 4
+    if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
+        df['NOINFO'][i] = 1
+        df['LABEL'][i] = 5
 del df['EVENT'] 
-df = df.ffill()
+#df = df.ffill()
 
-#reading dictionary with min/max values for normalization
+
+# Reading dictionary with min/max values for normalization.
 def read_dict(path):
- dic={}
- for line in open(path):
-  key,value=line.strip().split(':')
-  dic[key]=float(value)  #dic[key]=value
- return dic
+    dic={}
+    for line in open(path):
+        key,value=line.strip().split(':')
+        dic[key]=float(value)  #dic[key]=value
+    return dic
+
 minmax_dict = read_dict(r'c:\data\minmax-sub.txt')
 mean_dict = read_dict(r'c:\data\mean.txt')
 
-df.SD = (df.SD - mean_dict['AVG(SD)']) / (minmax_dict['MAX-MIN(SD)'])
-df.PINB = (df.PINB - mean_dict['AVG(PINB)']) / (minmax_dict['MAX-MIN(PINB)'])
-df.POUTB = (df.POUTB - mean_dict['AVG(POUTB)']) / (minmax_dict['MAX-MIN(POUTB)'])
-df.TINB = (df.TINB - mean_dict['AVG(TINB)']) / (minmax_dict['MAX-MIN(TINB)'])
-df.TOUTB = (df.TOUTB - mean_dict['AVG(TOUTB)']) / (minmax_dict['MAX-MIN(TOUTB)'])
-df.CF = (df.CF - mean_dict['AVG(CF)']) / (minmax_dict['MAX-MIN(CF)'])
-df.TFIRE = (df.TFIRE - mean_dict['AVG(TFIRE)']) / (minmax_dict['MAX-MIN(TFIRE)'])
-df.REVHP = (df.REVHP - mean_dict['AVG(REVHP)']) / (minmax_dict['MAX-MIN(REVHP)'])
-df.REVLP = (df.REVLP - mean_dict['AVG(REVLP)']) / (minmax_dict['MAX-MIN(REVLP)'])
-df.REVWE = (df.REVWE - mean_dict['AVG(REVWE)']) / (minmax_dict['MAX-MIN(REVWE)'])
-df.Q = (df.Q - mean_dict['AVG(Q)']) / (minmax_dict['MAX-MIN(Q)'])
-df['SEGMENT'] = 0
+# Normalization
+def normalize(data_frame, param):
+    data_frame[param] = (data_frame[param] - mean_dict[''.join(['AVG(',param,')'])]) / (minmax_dict[''.join(['MAX-MIN(',param,')'])])
 
-#some values are too small, they should be multiplied by 10 or 100
+for param in parameters:
+    normalize(df, param)
+
+# Some values are too small, they should be multiplied by 10 or 100.
 for j in range(len(parameters)):
- for i in range(1,3):
-  if abs(df[parameters[j]]).max() < 0.00009*(10**i):
-   df[parameters[j]] = df[parameters[j]]*10**(4-i)
-   
-#equidistance
-df = df.asfreq('1S', method = 'pad')
-df = df.resample('5Min', how='mean')
-
+    for i in range(1, 4):
+        if abs(df[parameters[j]]).max() < 0.00009 * (10**i):
+            df[parameters[j]] = df[parameters[j]] * 10**(4-i)
 for i in range(len(parameters)):
- plt.plot(df.index, df[parameters[i]], label = parameters[i])
-#for i in range(len(events)):
-# plt.plot(df.index, df[events[i]], label = events[i])
-plt.plot(df.index, df['AVARIA'], 'bo', label = 'AVARIA')
-plt.plot(df.index, df.SEGMENT, label = 'Segment')
+    plt.plot(df.index, df[parameters[i]], label = parameters[i])
+# for i in range(len(events)):
+ # plt.plot(df.index, df[events[i]], label = events[i])
+plt.plot(df.index, df['AVARIA'], 'bo', label='AVARIA')
+plt.plot(df.index, df.SEGMENT, label='Segment')
 plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
 plt.show()
 
-#TIME SEGMENTATION
-for 
-#MANUAL SEGMENTATION
-df['SEGMENT'][0] = 1
-df['SEGMENT'][-1] = 1
-
-if filename == 'exportGrnR3e2.csv': ####SEGMENTS FOR GrnR3e2  
- df.SEGMENT[3758*2] = 1
- df.SEGMENT[7133*2] = 1
- df.SEGMENT[14700*2] = 1
-
-if filename == 'exportMzgR8e1.dsv':
- df.SEGMENT[156*2] = 1
- df.SEGMENT[248*2] = 1
- df.SEGMENT[336*2] = 1
- df.SEGMENT[665*2] = 1
- df.SEGMENT[758*2] = 1
- df.SEGMENT[1115*2] = 1
- df.SEGMENT[1580*2] = 1
- df.SEGMENT[5577*2] = 1
- df.SEGMENT[5913*2] = 1
- df.SEGMENT[6363*2] = 1
- df.SEGMENT[6419*2] = 1
- df.SEGMENT[6465*2] = 1
-
-
-if filename == 'exportNkgR9e3.dsv':# ####SEGMENTS FOR NkgR9e3
- df.SEGMENT[4800] = 1
- df.SEGMENT[11367] = 1
- df.SEGMENT[11547] = 1
- df.SEGMENT[24602] = 1
- df.SEGMENT[28733] = 1
- df.SEGMENT[37759] = 1
- df.SEGMENT[37766] = 1
-
-
-if filename == 'exportMzgR8e3.dsv':   # ####SEGMENTS FOR MzgR8e3
- df.SEGMENT[1060] = 1
- df.SEGMENT[1350] = 1
- df.SEGMENT[1680] = 1
- df.SEGMENT[1765] = 1
- df.SEGMENT[1950] = 1
- df.SEGMENT[2130] = 1
- df.SEGMENT[2390] = 1
- df.SEGMENT[2390] = 1
-
-if filename == 'exportPrkR1e11.dsv':    ####SEGMENTS FOR PrkR1e11
- df.SEGMENT[376] = 1
- df.SEGMENT[416] = 1
- df.SEGMENT[999] = 1
- df.SEGMENT[1035] = 1
- df.SEGMENT[1300] = 1
- df.SEGMENT[1347] = 1
- df.SEGMENT[1660] = 1
- df['SEGMENT'][0] = 1
- df['SEGMENT'][-1] = 1
-
-if filename == 'exportNkgR9e2.dsv':   ####SEGMENTS FOR NkgR9e2
- df.SEGMENT[610] = 1
- df.SEGMENT[1620] = 1
-
-if filename == 'exportNkgR10e1.dsv':      ####SEGMENTS FOR NkgR10e1
- df.SEGMENT[1180] = 1
- df.SEGMENT[3600] = 1
- df.SEGMENT[3700] = 1
- df.SEGMENT[3910] = 1
- df.SEGMENT[4164] = 1
- df.SEGMENT[4360] = 1
- df.SEGMENT[4910] = 1
-
-
-if filename == 'exportChaR6e2.dsv':  ####SEGMENTS FOR ChaR6e2
- df.SEGMENT[657] = 1
- df.SEGMENT[2840] = 1
- df.SEGMENT[7290] = 1
-
-
-if filename == 'exportGrnR6e1.dsv':   ####SEGMENTS FOR GrnR6e1
- df.SEGMENT[592] = 1
- df.SEGMENT[803] = 1
- df.SEGMENT[1753] = 1
- df.SEGMENT[4077] = 1
- df.SEGMENT[4166] = 1
- df.SEGMENT[5705] = 1
- df.SEGMENT[11105] = 1
- df.SEGMENT[12395] = 1
- df.SEGMENT[12555] = 1
- df.SEGMENT[12374] = 1
- df.SEGMENT[13464] = 1
- df.SEGMENT[13464] = 1
+# Segmentation
+df = df.asfreq('1S')
+df = df.resample('90Min')
+df = df.dropna(subset=parameters, how='all')
 
 
 #MARK SEGMENTS WITH ACCEDENTS
 
 segments = list()
 for i in range(len(df)):
- if df['SEGMENT'][i] == 1:
-   segments.append(i)
+    if df['SEGMENT'][i] == 1:
+        segments.append(i)
 for i in range(len(df)):
- if df['LABEL'][i] > 0.9:
-  for j in range(len(segments)):
-   if i > segments[j]:
-    try:
-     if i < segments[j+1]:
-      df['SEGMENT'][segments[j]] = 2
-    except IndexError:
-     df['SEGMENT'][segments[j]] = 2
+    if df['LABEL'][i] > 0.9:
+        for j in range(len(segments)):
+    if i > segments[j]:
+        try:
+            if i < segments[j+1]:
+                df['SEGMENT'][segments[j]] = 2
+        except IndexError:
+            df['SEGMENT'][segments[j]] = 2
 
 print('Data is loaded. Show plot? y/n')
 if raw_input() == 'y':
@@ -217,52 +135,6 @@ if raw_input() == 'y':
  plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
  plt.show()
  
-#UNIFICATION
-
-indx = date_range('2013-02-20', periods=len(df), freq='10Min')
-df.index = indx
-ind = [i for i in range(len(df)) if df['SEGMENT'][i]>0.9]
-labels = [i for i in range(len(df)) if df['SEGMENT'][i]>1]
-df_list = list()
-dfu = DataFrame()
-for i in range(len(ind)-1):
- buf = df[ind[i]:ind[i+1]]
- print ind[i], ind[i+1]
- coef = 600/(float(600)/len(buf))
- buf = buf.asfreq(str(int(coef-1))+'S', method = 'pad')
- buf = buf[:600]
- df_list.append(buf) 
- 
-dfu = concat(df_list)
-
-i = 0
-while i in range(len(dfu) - 100):
-  if dfu['SEGMENT'][i] > 0.9:
-   print i
-   j = 1
-   while j < 100:
-    dfu['SEGMENT'][i+j] = 0
-    j += 1
-   i = i + j
-  else:
-   i += 1
-print('Segments are unificated. Show plot? y/n')
-if raw_input() == 'y':
- plt.plot(dfu.PINB, label = 'PinB')
- plt.plot(dfu.POUTB, label = 'PoutB')
- plt.plot(dfu.SD, label = 'SD')
- plt.plot(dfu.Q, label = 'Q')
- plt.plot(dfu.TINB, label = 'TinB')
- plt.plot(dfu.TOUTB, label = 'ToutB')
- plt.plot(dfu.REVWE, label = 'RevWE')
- plt.plot(dfu.REVHP, label = 'RevHP')
- plt.plot(dfu.REVLP, label = 'RevLP')
- plt.plot(dfu.TFIRE, label = 'Tfire')
- plt.plot(dfu.CF, label = 'CF')
- plt.plot(dfu.LABEL, label = 'Label')
- plt.plot(dfu.SEGMENT, label = 'Segment')
- plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
- plt.show()
 
 print(''.join(['Write file ', filepath, 'segment', filename[6:13], '.csv? y/n']))
 if raw_input() == 'y':
