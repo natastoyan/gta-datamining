@@ -27,51 +27,24 @@ from pybrain.tools.xml.networkwriter import NetworkWriter
 #    ''.join([filepath,filename]),delimiter, index_col=["TIMESTAMP"], 
 #    parse_dates=["TIMESTAMP"], dayfirst=True
 #) 
-#df = read_csv(
-#    'c:\data\export_all.dsv',';', index_col=["TIMESTAMP"],
-#     parse_dates=["TIMESTAMP"], dayfirst=True
-#)
-df = read_csv(
-    'c:\data\exportPrkR1e11.dsv',';', index_col=["TIMESTAMP"],
-    parse_dates=["TIMESTAMP"], dayfirst=True
-) 
+# df = read_csv(
+   # 'c:\data\export_all.dsv',';', index_col=["TIMESTAMP"],
+    # parse_dates=["TIMESTAMP"], dayfirst=True
+)
 
-parameters = [
+DAY = 86400
+
+PARAMETERS = [
     'SD','PINB','TINB',
     'Q','POUTB','TOUTB',
     'REVHP','REVLP','REVWE',
     'TFIRE','CF'
 ]
-events = [
+EVENTS = [
     'AVARIA', 'REMONT', 'RABOTA',
     'REZERV', 'NOINFO'
 ]
 
-# LABEL in df and WRITE FILE WITHOUT EQUID
-for i in range(len(events)):
-    df[events[i]] = 0
-df['LABEL'] = 0
-for i in range(len(df)):
-    if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
-        df['AVARIA'][i] = 1
-        df['LABEL'][i] = 1
-    if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#v remonte
-        df['REMONT'][i] = 1
-        df['LABEL'][i] = 2
-    if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#v rabote
-        df['RABOTA'][i] = 1
-        df['LABEL'][i] = 3
-    if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#v rezerve
-        df['REZERV'][i] = 1
-        df['LABEL'][i] = 4
-    if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
-        df['NOINFO'][i] = 1
-        df['LABEL'][i] = 5
-del df['EVENT'] 
-#df = df.ffill()
-
-
-# Reading dictionary with min/max values for normalization.
 def read_dict(path):
     dic={}
     for line in open(path):
@@ -79,35 +52,71 @@ def read_dict(path):
         dic[key]=float(value)  #dic[key]=value
     return dic
 
-minmax_dict = read_dict(r'c:\data\minmax-sub.txt')
-mean_dict = read_dict(r'c:\data\mean.txt')
+
+def normalize(data_frame, param, mean, minmax):
+    data_frame[param] = (
+        (data_frame[param] - mean[''.join(['AVG(',param,')'])]) / (
+            minmax[''.join(['MAX-MIN(',param,')'])]
+        )
+    )
+
+
+df = read_csv(
+    'c:\data\exportPrkR1e11.dsv',';', index_col=["TIMESTAMP"],
+    parse_dates=["TIMESTAMP"], dayfirst=True
+    )
+# Processing events data.
+for i in range(len(EVENTS)):
+    df[EVENTS[i]] = float('NaN')
+
+for i in range(len(df)):
+    if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
+        df['AVARIA'][i] = 1
+    if df['EVENT'][i] == '\xc2 \xf0\xe5\xec\xee\xed\xf2\xe5':#v remonte
+        df['REMONT'][i] = 1
+    if df['EVENT'][i] == '\xc2 \xf0\xe0\xe1\xee\xf2\xe5':#v rabote
+        df['RABOTA'][i] = 1
+    if df['EVENT'][i] == '\xc2 \xf0\xe5\xe7\xe5\xf0\xe2\xe5':#v rezerve
+        df['REZERV'][i] = 1
+    if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
+        df['NOINFO'][i] = 1
+del df['EVENT'] 
+
 
 # Normalization
-def normalize(data_frame, param):
-    data_frame[param] = (data_frame[param] - mean_dict[''.join(['AVG(',param,')'])]) / (minmax_dict[''.join(['MAX-MIN(',param,')'])])
-
-for param in parameters:
-    normalize(df, param)
-
+# Reading dictionary with min/max values for normalization.
+minmax_dict = read_dict(r'c:\data\minmax-sub.txt')
+mean_dict = read_dict(r'c:\data\mean.txt')
+for param in PARAMETERS:
+    normalize(df, param, mean_dict, minmax_dict)
 # Some values are too small, they should be multiplied by 10 or 100.
-for j in range(len(parameters)):
+for j in range(len(PARAMETERS)):
     for i in range(1, 4):
-        if abs(df[parameters[j]]).max() < 0.00009 * (10**i):
-            df[parameters[j]] = df[parameters[j]] * 10**(4-i)
-for i in range(len(parameters)):
-    plt.plot(df.index, df[parameters[i]], label = parameters[i])
-# for i in range(len(events)):
- # plt.plot(df.index, df[events[i]], label = events[i])
-plt.plot(df.index, df['AVARIA'], 'bo', label='AVARIA')
-plt.plot(df.index, df.SEGMENT, label='Segment')
-plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
-plt.show()
+        if abs(df[PARAMETERS[j]]).max() < 0.00009 * (10**i):
+            df[PARAMETERS[j]] = df[PARAMETERS[j]] * 10**(4-i)
+
 
 # Segmentation
 df = df.asfreq('1S')
 df = df.resample('90Min')
-df = df.dropna(subset=parameters, how='all')
+df = df.dropna(subset=PARAMETERS, how='all')
 
+df['DATETIME'] = df.index
+df['DELTA'] = (df['DATETIME'] - df['DATETIME'].shift()).fillna(0)
+df['WORK'] = 0
+df['CRASH'] = 0
+
+df_avaria = df[df.AVARIA.notnull()]
+df_rabota = df[df.RABOTA.notnull()]
+df_rezerv = df[df.REZERV.notnull()]
+df_remont = df[df.REMONT.notnull()]
+for i in range(len(df)):
+    for j in range(len(df)):
+        if (df.index[i] - 
+
+df.AVARIA.notnull()
+
+df.to_csv('c:\data\segmentPrkR1e11.csv', sep=',')
 
 #MARK SEGMENTS WITH ACCEDENTS
 
@@ -125,21 +134,14 @@ for i in range(len(df)):
         except IndexError:
             df['SEGMENT'][segments[j]] = 2
 
-print('Data is loaded. Show plot? y/n')
-if raw_input() == 'y':
- for i in range(len(parameters)):
-  plt.plot(df[parameters[i]], label = parameters[i])
- for i in range(len(events)):
-  plt.plot(df[events[i]], label = events[i])
- plt.plot(df.SEGMENT, label = 'Segment')
- plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
- plt.show()
- 
-
-print(''.join(['Write file ', filepath, 'segment', filename[6:13], '.csv? y/n']))
-if raw_input() == 'y':
- dfu.to_csv(''.join([filepath, 'segment', filename[6:13], '.csv']), sep=';')
-
+ # Plotting
+for i in range(len(PARAMETERS)):
+    plt.plot(df.index, df[PARAMETERS[i]], label = PARAMETERS[i])
+for i in range(len(EVENTS)):
+    plt.plot(df.index, df[EVENTS[i]],  label = EVENTS[i])
+#plt.plot(df.index, df['AVARIA'], 'bo', label='AVARIA')
+plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
+plt.show()
 
 #load data from files into list of DataFrames
 dfu_list = list()
