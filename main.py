@@ -5,7 +5,9 @@ import numpy as np
 import scipy as sp
 from pandas import *
 from matplotlib import pyplot as plt
-from math import *
+from math import log
+from datetime import timedelta
+from scipy.cluster.vq import kmeans, vq, whiten
 from pybrain.tools.shortcuts import buildNetwork 
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import BackpropTrainer
@@ -15,13 +17,12 @@ from pybrain.structure.modules import SoftmaxLayer, SigmoidLayer, LinearLayer, T
 from pybrain.tools.xml.networkwriter import NetworkWriter
 
 
-# с авариями: c:\gta-data\exportGrnR3e2.csv, exportMzgR8e1.dsv, exportAlmR3e1.csv, exportNkgR9e3.dsv, 
+# с авариями: c:\gta-data\exportGrnR3e2.csv, c:\gta-data\exportMzgR8e1.dsv, c:\gta-data\exportAlmR3e1.csv, c:\gta-data\exportNkgR9e3.dsv, 
 # exportMzgR8e3.dsv, exportPrkR1e11.dsv, #exportVtkR1e2.dsv, exportNkgR9e2.dsv (delimiter = ',''), 
 # exportNkgR10e1.dsv, exportGrnR6e1.dsv, c:\data\exportChaR6e2.dsv, exportIgrR1e1.dsv
 # без аварий: c:\gta-data\exportGrnR2e4.dsv
 
 
-DAY = 86400
 
 PARAMETERS = [
     'SD','PINB','TINB',
@@ -49,9 +50,10 @@ def loaddata(path):
         )
     return df
 
+
 def eventshandling(df):
     for event in EVENTS:
-        df[event] = float('NaN') 
+        df[event] = 0 
     for i in range(len(df)):
         if df['EVENT'][i] == '\xc0\xe2\xe0\xf0\xe8\xff':#avaria
             df['AVARIA'][i] = 1
@@ -63,7 +65,14 @@ def eventshandling(df):
             df['REZERV'][i] = 1
         if df['EVENT'][i] == '\xcd\xe5\xf2 \xe4\xe0\xed\xed\xfb\xf5':#net dannyh
             df['NOINFO'][i] = 1
-    del df['EVENT'] 
+    del df['EVENT']
+    return df
+
+
+def norm(arr):
+    arr = (arr - np.mean(arr))/(np.max(arr) - np.min(arr))
+    return arr
+
 
 def normalize(data_frame, param, mean, minmax):
     data_frame[param] = (
@@ -85,82 +94,117 @@ def normalize_data(df):
                 df[param] = df[param] * 10**(4-i)
     return df
 
-def plot_data(df):
+
+def segmentation(df):
+    dfs = df.resample('90Min')
+    dfs = dfs.dropna(subset=PARAMETERS, how='all')
+    dfs = dfs.ffill()
+    for i in range(len(dfs)):
+        if dfs.AVARIA[i] <> 0:
+            dfs.AVARIA[i-32:i+1] = 0.9
+    for i in range(len(dfs)):
+        if dfs.RABOTA[i] <> 0:
+            print sum(dfs.REZERV[i-16:i])
+            if sum(dfs.REZERV[i-16:i]) == 0 and sum(
+             dfs.REMONT[i-16:i]) == 0 and sum(
+             dfs.AVARIA[i-16:i])== 0:
+                dfs.RABOTA[i-16:i+1] = 0.9
+    return dfs
+
+
+def clustering(df):
+    dfc = df
+    dfc = whiten(dfc) # sort of normalization
+    data = np.ndarray((len(dfc), len(dfc.axes)), buffer = dfc[PARAMETERS].values)
+    centroids, dis = kmeans(data, 3)
+    centroids = whiten(centroids)
+    idx, _ = vq(data, centroids)
+    badcentroids = 0
+    if (len(centroids) <= 2 or np.isnan(centroids).any()
+            or centroids.any() == 0.0):
+        badcentroids += 1
+        clustering(df)
+    else: 
+        print 'number of try:', badcentroids
+        print 'distortion:', dis
+        plt.plot(data[idx==0,0],data[idx==0,1],'ob', 
+                 data[idx==1,0],data[idx==1,1],'or',
+                 data[idx==2,0],data[idx==2,1],'oy')
+        plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
+        plt.show()
+        print 'Are clusters ok? y/n'
+        if raw_input() == 'n':
+            try:
+                clustering(df)
+            except: pass
+        else: pass
+    return centroids, data, idx  
+
+
+def plot_dataframe(df):
     for param in PARAMETERS:
         plt.plot(df.index, df[param], label = param)
-    for event in (EVENTS):
-        plt.plot(df.index, df[event],  label = event)
-    #plt.plot(df.index, df['AVARIA'], 'bo', label='AVARIA')
+    # for event in (EVENTS):
+        # plt.plot(df.index, df[event],  label = event)
+    try:
+        # plt.plot(df.index, df.AVARIA[df.AVARIA <> 0], 'ro')
+        # plt.plot(df.index, df.RABOTA[df.RABOTA <> 0], 'bo')
+        for i in range(len(df)):
+            if df.AVARIA[i] <> 0:
+                plt.plot(df.index[i], df.AVARIA[i], 'ro')
+        for i in range(len(df)):
+            if df.RABOTA[i] <> 0:
+                plt.plot(df.index[i], df.RABOTA[i], 'bo')
+        
+    except: 
+        print 'Error while plotting events'
+    try:
+        plt.plot(df.index, df.CLUSTER, 'r--', label = 'CLUSTER')
+    except: 
+        print 'Error while plotting cluster'
     plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
     plt.show()
 
-# Segmentation
-def segmentation(df):
-    df = df.asfreq('1S')
-    #где-то здесь должно определяться, как высчитывается параметр за 1,5 часа. сейчас вроде среднее.
-    df = df.resample('90Min')
-    df = df.dropna(subset=PARAMETERS, how='all')
-    df['DATETIME'] = df.index
-    df['DELTA'] = (df['DATETIME'] - df['DATETIME'].shift()).fillna(0)
-    df['WORK'] = 0
-    df['CRASH'] = 0
-    df_avaria = df[df.AVARIA.notnull()]
-    df_rabota = df[df.RABOTA.notnull()]
-    df_rezerv = df[df.REZERV.notnull()]
-    df_remont = df[df.REMONT.notnull()]
-    # for i in range(len(df)):
-        # for j in range(len(df)):
-            # if (df.index[i] - 
-    df.AVARIA.notnull()
 
+def plot_cluster(data, centroids, idx):
+    plt.plot(data[idx==0,0],data[idx==0,1],'ob',
+             data[idx==1,0],data[idx==1,1],'or')
+    plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
+    plt.show()
+
+
+def map_dataframe_and_clusters(df, idx):
+    #df['CLUSTER'] = norm(idx)
+    df['CLUSTER'] = idx
+    return df
 
 def main():
-    print 'Hello, data mining!'
     df = loaddata(sys.argv[1])
-    eventshandling(df)
+    #plot_dataframe(df)
+    df = eventshandling(df)
+    #plot_dataframe(df)    
+    # print 'index, REZERV, REMONT, RABOTA'
+    # for i in range(len(df)):
+        # if df.REZERV[i] <> 0 or df.REMONT[i] <> 0 or df.RABOTA[i] <> 0:
+            # print df.index[i], df.REZERV[i], df.REMONT[i], df.RABOTA[i]
     dfn = normalize_data(df)
-    plot_data(dfn)
-    dfs = segmentation(df)
+    #plot_dataframe(dfn)
+    dfs = segmentation(dfn)
+    #plot_dataframe(dfs)
+    # for i in range(len(dfs)):
+        # if dfs.RABOTA[i] <> 0:
+            # print dfs.index[i]
+    centroids, data, idx = clustering(dfs)
+    dfc = map_dataframe_and_clusters(dfs, idx)
+    plot_dataframe(dfc)
+    print dfc
+
+    #plot_cluster(centroids, data, idx) #doesn't work
 
 
 if __name__ == '__main__':
     main()
 
-
-#MARK SEGMENTS WITH ACCEDENTS
-
-# segments = list()
-# for i in range(len(df)):
-    # if df['SEGMENT'][i] == 1:
-        # segments.append(i)
-# for i in range(len(df)):
-    # if df['LABEL'][i] > 0.9:
-        # for j in range(len(segments)):
-    # if i > segments[j]:
-        # try:
-            # if i < segments[j+1]:
-                # df['SEGMENT'][segments[j]] = 2
-        # except IndexError:
-            # df['SEGMENT'][segments[j]] = 2
-
-#load data from files into list of DataFrames
-# dfu_list = list()
-
-# for name in ['c:\data\segmentMzgR8e1.csv', 'c:\data\segmentGrnR3e2.csv', 'c:\data\segmentAlmR3e1.csv', 'c:\data\segmentNkgR9e3.csv', 'c:\data\segmentMzgR8e3.csv', 'c:\data\segmentPrkR1e11.csv', 'c:\data\segmentNkgR9e2.csv', 'c:\data\segmentGrnR6e1.csv', 'c:\data\segmentChaR6e2.csv', 'c:\data\segmentGrnR3e2.csv', 'c:\data\segmentNkgR9e3.csv']:
- # print(name)
- # dfu_buf = read_csv(name,';', index_col=["TIMESTAMP"], parse_dates=["TIMESTAMP"], dayfirst=True)
- # dfu_list.append(dfu_buf)
-# for i in range(len(dfu_list)):
- # plt.plot(dfu_list[i].POUTB)
- # plt.plot(dfu_list[i].SEGMENT)
-# plt.show()
-
-# for i in range(len(dfu_list)-1):
- # dfu_list[i+1].POUTB = dfu_list[i+1].POUTB - (dfu_list[i+1].POUTB.min() - dfu_list[i].POUTB.min())
- # print i, i+1
-
-# dfu = concat([dfu_list[i] for i in range(len(dfu_list))])
-# dfu.to_csv('c:/data/segments.csv', sep=';')
 
 #NEURAL NETWORK
 #Teaching and testing network
