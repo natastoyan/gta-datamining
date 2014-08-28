@@ -21,7 +21,7 @@ from pybrain.tools.xml.networkwriter import NetworkWriter
 
 
 # с авариями: exportGrnR3e2.csv, exportMzgR8e1.dsv, exportAlmR3e1.csv, exportNkgR9e3.dsv, 
-# exportMzgR8e3.dsv, exportPrkR1e11.dsv, #exportVtkR1e2.dsv, exportNkgR9e2.dsv (delimiter = ',''), 
+# exportMzgR8e3.dsv, exportPrkR1e11.dsv, #exportVtkR1e2.dsv, exportNkgR9e2.сsv, 
 # exportNkgR10e1.dsv, exportGrnR6e1.dsv, c:\data\exportChaR6e2.dsv, exportIgrR1e1.dsv
 # без аварий: c:\gta-data\exportGrnR2e4.dsv
 
@@ -127,32 +127,33 @@ def clustering(df):
     data = np.ndarray((len(dfc.index), len(dfc.axes)), buffer = dfc[PARAMETERS].values)
     #print data
     #centroids, idx = kmeans2(data, 3)
-    centroids, dis = kmeans(data, 4)
+    centroids, dis = kmeans(data, 3)
     idx, _ = vq(data, centroids)
     badcentroids = 0
-    if (len(centroids) <= 2 or np.isnan(centroids).any()
-            or centroids.any() == 0.0):
-        badcentroids += 1
-        clustering(df)
-    else: 
-        print 'number of try:', badcentroids
-        #print 'distortion:', dis
-        plt.plot(data[idx==0,0],data[idx==0,1],'ob', 
-                 data[idx==1,0],data[idx==1,1],'or',
-                 data[idx==2,0],data[idx==2,1],'oy')
-        plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
-        plt.show()
+    # if (len(centroids) <= 2 or np.isnan(centroids).any()
+             # or centroids.any() == 0.0):
+        # print 'it is very bad'
+        # badcentroids += 1
+        # clustering(df)
+    # else: 
+        # print 'number of try:', badcentroids
+        # print 'distortion:', dis
+        # plt.plot(data[idx==0,0],data[idx==0,1],'ob', 
+                 # data[idx==1,0],data[idx==1,1],'or',
+                 # data[idx==2,0],data[idx==2,1],'oy')
+        # plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
+        # plt.subplots_adjust(left=0.05, bottom=0.05, right=0.99, top=0.99,
+                # wspace=None, hspace=None)
+        # plt.show()
+    
+    plt.plot(data[idx==0,0],data[idx==0,1],'ob', 
+         data[idx==1,0],data[idx==1,1],'or',
+         data[idx==2,0],data[idx==2,1],'oy')
+    plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
+    plt.subplots_adjust(left=0.05, bottom=0.05, right=0.99, top=0.98,
+                wspace=None, hspace=None)
+    plt.show()
     return centroids, data, idx  
-
-
-def check_clusters_ok(df):
-    print 'Are clusters ok? y/n'
-    if raw_input() == 'n':
-        try:
-            centroids, data, idx = clustering(dfs)
-        except: pass
-    else: check_clusters_ok(df)
-    return centroids, data, idx
 
 
 def plot_dataframe(df):
@@ -171,15 +172,21 @@ def plot_dataframe(df):
         plt.plot(df.index, df.CLUSTER, 'r--', label = 'CLUSTER')
     except: 
         print 'Error while plotting cluster'
+    plt.ylim((-1.1,1.1))
+    plt.subplots_adjust(left=0.05, bottom=0.05, right=None, top=0.99,
+                wspace=None, hspace=None)
     plt.legend(bbox_to_anchor=(1.05, 1), loc=9, borderaxespad=0.)
     plt.show()
 
 
 def plot_cluster(data, centroids, idx):
+    print data
     print "plotting clusters ..."
     plt.plot(data[idx==0,0],data[idx==0,1],'ob',
              data[idx==1,0],data[idx==1,1],'or')
     plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
+    plt.subplots_adjust(left=0.05, bottom=0.05, right=0.99, top=0.99,
+                wspace=None, hspace=None)
     plt.show()
 
 
@@ -192,7 +199,7 @@ def map_dataframe_and_clusters(df, idx):
 def create_dataset(df):
     print 'creating dataset ...'
     ds = ClassificationDataSet(8, 1, nb_classes=2, class_labels=[
-                                               'crash', 'nocrash']) 
+                                               'crash', 'nocrash'])
     for i in xrange(len(df.index)):
         buf = list()
         flag = 1
@@ -201,8 +208,8 @@ def create_dataset(df):
                     ]:
             if np.isnan(df[par][i]): flag = 0
             buf.append(df[par][i])
-        #if flag == 1: 
-        ds.addSample(buf, df.CRASH[i])
+        if flag == 1: 
+            ds.addSample(buf, df.CRASH[i])
     number = len((np.nonzero(df.CRASH)[0]))
     length = len(ds)
     percent = float(number)/length*100
@@ -212,14 +219,15 @@ def create_dataset(df):
     # print 'Data Set', ds
     return ds
 
+
 def network_training(ds):
     print 'network training ...'
     tries = 2
     bias = True
     fast = False
     previous_error = 100
-    epochs = 609
-    layer_dim = 1
+    epochs = 60
+    layer_dim = 0
     for _ in xrange(tries):
         print " try: %4d" % _
         train_ds, test_ds = ds.splitWithProportion(0.7)
@@ -262,10 +270,12 @@ def main():
     df = normalize_data(df)
     df = segmentation(df)
     df = events_handling(df)
-    #centroids, data, idx = clustering(df)
-    #df = map_dataframe_and_clusters(df, idx)
-    ds = create_dataset(df)
-    network_training(ds)
+    plot_dataframe(df)
+    centroids, data, idx = clustering(df)
+    df = map_dataframe_and_clusters(df, idx)
+    #plot_cluster(df, centroids, idx)
+    #ds = create_dataset(df)
+    #network_training(ds)
 
 
 if __name__ == '__main__':

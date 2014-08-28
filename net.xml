@@ -15,7 +15,7 @@
 				<name val="'bias'"/>
 			</BiasUnit>
 			<SigmoidLayer class="pybrain.structure.modules.sigmoidlayer.SigmoidLayer" name="hidden0">
-				<dim val="8"/>
+				<dim val="1"/>
 				<name val="'hidden0'"/>
 			</SigmoidLayer>
 		</Modules>
@@ -23,22 +23,22 @@
 			<FullConnection class="pybrain.structure.connections.full.FullConnection" name="FullConnection-4">
 				<inmod val="bias"/>
 				<outmod val="out"/>
-				<Parameters>[nan]</Parameters>
+				<Parameters>[-242.55376082242029]</Parameters>
 			</FullConnection>
 			<FullConnection class="pybrain.structure.connections.full.FullConnection" name="FullConnection-5">
 				<inmod val="bias"/>
 				<outmod val="hidden0"/>
-				<Parameters>[nan, nan, nan, nan, nan, nan, nan, nan]</Parameters>
+				<Parameters>[7.4425271673517575]</Parameters>
 			</FullConnection>
 			<FullConnection class="pybrain.structure.connections.full.FullConnection" name="FullConnection-6">
 				<inmod val="in"/>
 				<outmod val="hidden0"/>
-				<Parameters>[nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan]</Parameters>
+				<Parameters>[-1.3399057486190802, -3.6080838472086922, 0.49094146537568822, 0.8491216083464902, -0.56768512167865492, 0.15901466202436634, -0.075577605945656781, -1.4590886509451237]</Parameters>
 			</FullConnection>
 			<FullConnection class="pybrain.structure.connections.full.FullConnection" name="FullConnection-7">
 				<inmod val="hidden0"/>
 				<outmod val="out"/>
-				<Parameters>[nan, nan, nan, nan, nan, nan, nan, nan]</Parameters>
+				<Parameters>[-230.40350141487684]</Parameters>
 			</FullConnection>
 		</Connections>
 	</Network>
