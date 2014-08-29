@@ -23,7 +23,7 @@ from pybrain.tools.xml.networkwriter import NetworkWriter
 # с авариями: exportGrnR3e2.csv, exportMzgR8e1.dsv, exportAlmR3e1.csv, exportNkgR9e3.dsv, 
 # exportMzgR8e3.dsv, exportPrkR1e11.dsv, #exportVtkR1e2.dsv, exportNkgR9e2.сsv, 
 # exportNkgR10e1.dsv, exportGrnR6e1.dsv, c:\data\exportChaR6e2.dsv, exportIgrR1e1.dsv
-# без аварий: c:\gta-data\exportGrnR2e4.dsv
+# без аварий: exportGrnR2e4.dsv
 
 
 PARAMETERS = [
@@ -91,8 +91,8 @@ def normalize(data_frame, param, mean, minmax):
 def normalize_data(df):
     print "normalizing data ..."
     # Read dictionary with min/max values for normalization.
-    minmax_dict = read_dict(r'c:\gta-data\minmax-sub.txt')
-    mean_dict = read_dict(r'c:\gta-data\mean.txt')
+    minmax_dict = read_dict(r'minmax-sub.txt')
+    mean_dict = read_dict(r'mean.txt')
     for param in PARAMETERS:
         df = normalize(df, param, mean_dict, minmax_dict)
         for i in xrange(1, 4):# Some values are too small, they should be multiplied by 10 or 100.
@@ -110,7 +110,7 @@ def segmentation(df):
     return df
 
 
-def events_handling(df):
+def crashhandling(df):
     print "CRASH events handling ... "
     df['CRASH'] = 0
     for i in xrange(len(df.index)):
@@ -130,22 +130,7 @@ def clustering(df):
     centroids, dis = kmeans(data, 3)
     idx, _ = vq(data, centroids)
     badcentroids = 0
-    # if (len(centroids) <= 2 or np.isnan(centroids).any()
-             # or centroids.any() == 0.0):
-        # print 'it is very bad'
-        # badcentroids += 1
-        # clustering(df)
-    # else: 
-        # print 'number of try:', badcentroids
-        # print 'distortion:', dis
-        # plt.plot(data[idx==0,0],data[idx==0,1],'ob', 
-                 # data[idx==1,0],data[idx==1,1],'or',
-                 # data[idx==2,0],data[idx==2,1],'oy')
-        # plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
-        # plt.subplots_adjust(left=0.05, bottom=0.05, right=0.99, top=0.99,
-                # wspace=None, hspace=None)
-        # plt.show()
-    
+    # check min cost function here
     plt.plot(data[idx==0,0],data[idx==0,1],'ob', 
          data[idx==1,0],data[idx==1,1],'or',
          data[idx==2,0],data[idx==2,1],'oy')
@@ -227,7 +212,7 @@ def network_training(ds):
     fast = False
     previous_error = 100
     epochs = 60
-    layer_dim = 0
+    layer_dim = 1
     for _ in xrange(tries):
         print " try: %4d" % _
         train_ds, test_ds = ds.splitWithProportion(0.7)
@@ -263,19 +248,16 @@ def network_training(ds):
 
 def main():
     df = loaddata(sys.argv[1])
-    # ti = (timeit('eventshandling(df)', 'from __main__ import eventshandling', number = 1))
-    # print ti
-    # sleep()
     df = eventshandling(df)
     df = normalize_data(df)
     df = segmentation(df)
     df = events_handling(df)
     plot_dataframe(df)
-    centroids, data, idx = clustering(df)
-    df = map_dataframe_and_clusters(df, idx)
+    #centroids, data, idx = clustering(df)
+    #df = map_dataframe_and_clusters(df, idx)
     #plot_cluster(df, centroids, idx)
-    #ds = create_dataset(df)
-    #network_training(ds)
+    ds = create_dataset(df)
+    network_training(ds)
 
 
 if __name__ == '__main__':
